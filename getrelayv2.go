@@ -107,50 +107,17 @@ func Getrelay(did string, hash string, callback ReadCallback) (int, error) {
 		}
 		//conn.SetKeepAlive(true)
 		conn.Write([]byte(post_msg)) //Write to Relay
-		first := make([]byte, 1)
-		buf := make([]byte, 1024*32)
-		log.Println("Start to Read")
 
-		if _, err := conn.Read(first); err == io.EOF {
-			log.Println("[^mock_app] Device:", did, " has closed from server")
-			conn.Close()
-			log.Println("[^mock_app] Fatal !  Exit from program")
-		} else {
-			for { //continuously read
-				_, err := conn.Read(buf)
-				if err != nil {
-					log.Println("[^mock_app] Device:", did, " Read Error ")
-					conn.Close()
-					conn = nil
-					//return errors.New("Read Response Error")
-					return -1, errors.New("Read Response Error")
-				}
-				//log.Println("[^mock_app] Device:", did, " recieve:", string(buf)[:20])
-				//isOK := strings.Contains(string(buf), "200 OK")
-				is404 := strings.Contains(string(buf), "404 Not Found")
-				if is404 {
-					log.Println("404 Not Found")
-					//return errors.New("404 Not Found")
-					return -1, errors.New("404 Not Found")
-				}
-
-				callback.ReadBytes(buf)
-			}
-
-		}
-		/*
-			newfd := saveConn(conn)
-			go ReadDataRoutine(did, hash, conn, callback)
-			return newfd, nil
-		*/
+		newfd := saveConn(conn)
+		go readDataRoutine(did, hash, conn, callback)
+		return newfd, nil
 	}
 
 	return -1, errors.New("TCPDial Error")
 
 }
 
-/*
-func ReadDataRoutine(did string, hash string, conn *net.TCPConn, callback ReadCallback) error {
+func readDataRoutine(did string, hash string, conn *net.TCPConn, callback ReadCallback) error {
 
 	first := make([]byte, 1)
 	buf := make([]byte, 1024*32)
@@ -183,7 +150,7 @@ func ReadDataRoutine(did string, hash string, conn *net.TCPConn, callback ReadCa
 	}
 	return nil
 }
-*/
+
 func saveConn(conn *net.TCPConn) int {
 	for i := 0; i < max_conn; i++ {
 		if connections[i] == nil {
