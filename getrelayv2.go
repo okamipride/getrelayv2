@@ -10,6 +10,7 @@ import (
 	"io"
 	//"bytes"
 	"errors"
+	//"io/ioutil"
 	"log"
 	"net"
 	"strings"
@@ -75,7 +76,7 @@ func PrintHello(p Printer) string {
 
 var mycallback ReadCallback
 
-func Getrelay(did string, hash string, callback ReadCallback) (int, error) {
+func Getrelay(did string, hash string, host string, callback ReadCallback) (int, error) {
 	if did != "" {
 		did_default = did
 	}
@@ -83,8 +84,8 @@ func Getrelay(did string, hash string, callback ReadCallback) (int, error) {
 	post_msg := "POST /connect HTTP/1.1\r\n\r\n" + "\"did\":\"" + did + "\"" +
 		"\r\n" + "\"hash\":\"" + hash + "\"" + "\r\n"
 	//connect_msg := connect_prefix + connect_did + "\"" + did + "\"\r\n" + connect_hash + "\"" + hash + "\"\r\n"
-	url := api_server
-
+	//url := api_server
+	url := host + ":80"
 	tcpaddr, err := net.ResolveTCPAddr("tcp", url)
 	//tcpaddr, err := net.ResolveTCPAddr("tcp", "52.76.5.88:80")
 	log.Println("ResolveTCPAddr = ", tcpaddr.IP)
@@ -112,42 +113,42 @@ func Getrelay(did string, hash string, callback ReadCallback) (int, error) {
 		go readDataRoutine(did, hash, conn, callback)
 		return newfd, nil
 	}
-
 	return -1, errors.New("TCPDial Error")
 
 }
 
 func readDataRoutine(did string, hash string, conn *net.TCPConn, callback ReadCallback) error {
 
-	first := make([]byte, 1)
+	//first := make([]byte, 1)
 	buf := make([]byte, 1024*32)
 	log.Println("Start to Read")
+	//firstread = false
+	//	if _, err := conn.Read(buf); err == io.EOF {
+	//		log.Println("[^mock_app] Device:", did, " has closed from server")
+	//		conn.Close()
+	//		log.Println("[^mock_app] Fatal !  Exit from program")
+	//	} else {
+	for { //continuously read
+		n, err := conn.Read(buf)
 
-	if _, err := conn.Read(first); err == io.EOF {
-		log.Println("[^mock_app] Device:", did, " has closed from server")
-		conn.Close()
-		log.Println("[^mock_app] Fatal !  Exit from program")
-	} else {
-		for { //continuously read
-			_, err := conn.Read(buf)
-			if err != nil {
-				log.Println("[^mock_app] Device:", did, " Read Error ")
-				conn.Close()
-				conn = nil
-				return errors.New("Read Response Error")
-			}
-			//log.Println("[^mock_app] Device:", did, " recieve:", string(buf)[:20])
-			//isOK := strings.Contains(string(buf), "200 OK")
-			is404 := strings.Contains(string(buf), "404 Not Found")
-			if is404 {
-				log.Println("404 Not Found")
-				return errors.New("404 Not Found")
-			}
-
-			callback.ReadBytes(buf)
+		if err != nil || err == io.EOF {
+			log.Println("[^mock_app] Device:", did, " Read Error ")
+			conn.Close()
+			conn = nil
+			return err
 		}
-
+		//log.Println("[^mock_app] Device:", did, " recieve:", string(buf)[:20])
+		//isOK := strings.Contains(string(buf), "200 OK")
+		is404 := strings.Contains(string(buf), "404 Not Found")
+		if is404 {
+			log.Println("404 Not Found")
+			// Do not take care here
+			//return errors.New("404 Not Found")
+		}
+		callback.ReadBytes(buf[0:n])
 	}
+
+	//	}
 	return nil
 }
 
